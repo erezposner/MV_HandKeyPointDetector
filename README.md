@@ -1,3 +1,10 @@
+Repository is based on 
+https://www.learnopencv.com/hand-keypoint-detection-using-deep-learning-and-opencv/
+additional development was made as a wrapping class to detect hand keypoints
+based on the article  - https://arxiv.org/pdf/1704.07809.pdf
+
+
+
 Please run getModels.sh from the command line to download the model in the correct folder.
 
 ### USAGE
@@ -9,13 +16,6 @@ python handPoseImage.py
 **For using on video :**
 python handPoseVideo.py
 
-#### C++
-**From the command line :**
-cmake .
-make
+**To create a class for hand keypoints detector**
+python HandKeypointDetector.py
 
-**For using it on single image :**
-./handPoseImage
-
-**For using on video :**
-./handPoseVideo
