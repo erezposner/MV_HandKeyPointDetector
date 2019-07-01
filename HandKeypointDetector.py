@@ -1,0 +1,105 @@
+from __future__ import division
+
+import glob
+
+import cv2
+import time
+import numpy as np
+
+class HandKeypointDetector():
+    def __init__(self,show_debug=False):
+        self.show_debug = show_debug
+        self.protoFile = "hand/pose_deploy.prototxt"
+        self.weightsFile = "hand/pose_iter_102000.caffemodel"
+        self.nPoints = 22
+        self.data_out = "out/"
+        self.rearrange_finger_indices = np.array([0, 4, 3, 2, 1, 8, 7, 6, 5, 12, 11, 10, 9, 16, 15, 14, 13, 20, 19, 18, 17])
+        self.min_number_of_points = 8
+        self.POSE_PAIRS = [ [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],[0,17],[17,18],[18,19],[19,20] ]
+        self.net = cv2.dnn.readNetFromCaffe(self.protoFile, self.weightsFile)
+    def detectKeyPoints(self,data_folder):
+
+# data_folder = r"P:\4Erez\david\2019-06-30-10.51.48\to_process\skeleton"
+        files = glob.glob(data_folder + '\*.png')
+        for f in range(0,len(files),1):
+            frame = cv2.imread(files[f])
+            import re
+            output_file_name = re.split('[\\\ .]', files[f])[-2] + '_skeleton.png'
+
+            frame = cv2.resize(frame,None,fx=0.5,fy=0.5)
+            # Select ROI
+
+            # frame=frame[int(frame.shape[0] / 2):, :, :]
+            # r = cv2.selectROI(frame)
+            #
+            # # Crop image
+            # frame = frame[int(r[1]):int(r[1] + r[3]), int(r[0]):int(r[0] + r[2])]
+
+            # frameCopy = np.copy(frame)
+            frameWidth = frame.shape[1]
+            frameHeight = frame.shape[0]
+            aspect_ratio = frameWidth/frameHeight
+
+            threshold = 0.1
+
+            t = time.time()
+            # input image dimensions for the network
+            inHeight = 368
+            inWidth = int(((aspect_ratio*inHeight)*8)//8)
+            inpBlob = cv2.dnn.blobFromImage(frame, 1.0 / 255, (inWidth, inHeight), (0, 0, 0), swapRB=False, crop=False)
+
+            self.net.setInput(inpBlob)
+
+            output = self.net.forward()
+            if self.show_debug:
+                print("time taken by network : {:.3f}".format(time.time() - t))
+
+            # Empty list to store the detected keypoints
+            points = []
+            points_probs = []
+            for i in range(self.nPoints):
+                # confidence map of corresponding body's part.
+                probMap = output[0, i, :, :]
+                probMap = cv2.resize(probMap, (frameWidth, frameHeight))
+
+                # Find global maxima of the probMap.
+                minVal, prob, minLoc, point = cv2.minMaxLoc(probMap)
+
+                if prob > threshold :
+                    cv2.circle(frame, (int(point[0]), int(point[1])), 8, (0, int(255*prob), int(255*prob)), thickness=-1, lineType=cv2.FILLED)
+                    cv2.putText(frame, "{}".format(self.rearrange_finger_indices[i]), (int(point[0]), int(point[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 1, lineType=cv2.LINE_AA)
+
+                    # Add the point to the list if the probability is greater than the threshold
+                    points.append((int(point[0]), int(point[1]),prob))
+                    points_probs.append(prob)
+                else :
+                    points_probs.append(0)
+                    points.append(None)
+
+            # Draw Skeleton
+            for ii,pair in enumerate(self.POSE_PAIRS):
+                partA = pair[0]
+                partB = pair[1]
+                prob = points_probs[ii]
+                if points[partA] and points[partB]:
+                    cv2.line(frame, points[partA][0:2], points[partB][0:2], (0, 255, 255), 2)
+                    cv2.circle(frame, points[partA][0:2], 8, (0, 0, int(255*prob)), thickness=-1, lineType=cv2.FILLED)
+                    cv2.circle(frame, points[partB][0:2], 8, (0, 0, int(255*prob)), thickness=-1, lineType=cv2.FILLED)
+
+            if self.show_debug:
+                cv2.imshow('Output-Skeleton', frame)
+                print("Total time taken : {:.3f}".format(time.time() - t))
+
+                cv2.waitKey(0)
+            cv2.imwrite(self.data_out + output_file_name, frame)
+            if self.min_number_of_points < sum(x is not None for x in points):
+                ordered_points = np.array(points)[self.rearrange_finger_indices]
+
+
+
+if __name__=='__main__':
+    data_folder = r"P:\4Erez\david\test\raw_stream"
+    show_debug = False
+    hd = HandKeypointDetector(show_debug)
+    hd.detectKeyPoints(data_folder)
+    print('%%%%%%%%%%% Done %%%%%%%%%%%%%%%')
