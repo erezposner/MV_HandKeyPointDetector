@@ -21,6 +21,7 @@ class HandKeypointDetector():
             shutil.rmtree(output_folder)
             time.sleep(1)
             os.mkdir(output_folder)
+        self.keypoints = np.zeros((2*(self.nPoints -1),3))
 
         self.rearrange_finger_indices = np.array([0, 4, 3, 2, 1, 8, 7, 6, 5, 12, 11, 10, 9, 16, 15, 14, 13, 20, 19, 18, 17])
         self.min_number_of_points = 8
@@ -102,7 +103,8 @@ class HandKeypointDetector():
             cv2.imwrite(self.data_out + '\\'+output_file_name+'.png', frame)
             if self.min_number_of_points < sum(x is not None for x in points):
                 ordered_points = np.array(points)[self.rearrange_finger_indices]
-                np.savez(self.data_out + '\\{}.npz'.format(output_file_name), kp_coord_uv=ordered_points[:,0:2], kp_visible=ordered_points[:,2], )
+                self.keypoints[0:self.nPoints-1,:] = ordered_points[:,0:3]
+                np.savez(self.data_out + '\\{}.npz'.format(output_file_name), kp_coord_uv=self.keypoints[:,0:2], kp_visible=self.keypoints[:,2], )
 
 
 if __name__=='__main__':
