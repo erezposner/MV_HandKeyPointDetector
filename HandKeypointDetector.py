@@ -1,30 +1,38 @@
 from __future__ import division
 
 import glob
-
+import sys
 import cv2
 import time
 import numpy as np
-
+import os
+import shutil
 class HandKeypointDetector():
-    def __init__(self,show_debug=False):
+    def __init__(self,output_folder,show_debug=False):
         self.show_debug = show_debug
-        self.protoFile = "hand/pose_deploy.prototxt"
-        self.weightsFile = "hand/pose_iter_102000.caffemodel"
+        file_dir = os.path.abspath(os.path.dirname(__file__))
+        self.protoFile = file_dir+"\\hand\\pose_deploy.prototxt"
+        self.weightsFile = file_dir+"\\hand\\pose_iter_102000.caffemodel"
         self.nPoints = 22
-        self.data_out = "out/"
+        self.data_out = output_folder
+        if not os.path.exists(output_folder):
+            os.mkdir(output_folder)
+        else:
+            shutil.rmtree(output_folder)
+            time.sleep(1)
+            os.mkdir(output_folder)
+
         self.rearrange_finger_indices = np.array([0, 4, 3, 2, 1, 8, 7, 6, 5, 12, 11, 10, 9, 16, 15, 14, 13, 20, 19, 18, 17])
         self.min_number_of_points = 8
         self.POSE_PAIRS = [ [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],[0,17],[17,18],[18,19],[19,20] ]
         self.net = cv2.dnn.readNetFromCaffe(self.protoFile, self.weightsFile)
     def detectKeyPoints(self,data_folder):
 
-# data_folder = r"P:\4Erez\david\2019-06-30-10.51.48\to_process\skeleton"
         files = glob.glob(data_folder + '\*.png')
         for f in range(0,len(files),1):
             frame = cv2.imread(files[f])
             import re
-            output_file_name = re.split('[\\\ .]', files[f])[-2] + '_skeleton.png'
+            output_file_name = re.split('[\\\ .]', files[f])[-2] + '_skeleton'
 
             frame = cv2.resize(frame,None,fx=0.5,fy=0.5)
             # Select ROI
@@ -91,7 +99,7 @@ class HandKeypointDetector():
                 print("Total time taken : {:.3f}".format(time.time() - t))
 
                 cv2.waitKey(0)
-            cv2.imwrite(self.data_out + output_file_name, frame)
+            cv2.imwrite(self.data_out + '\\'+output_file_name+'.png', frame)
             if self.min_number_of_points < sum(x is not None for x in points):
                 ordered_points = np.array(points)[self.rearrange_finger_indices]
                 np.savez(self.data_out + '\\{}.npz'.format(output_file_name), kp_coord_uv=ordered_points[:,0:2], kp_visible=ordered_points[:,2], )
@@ -100,6 +108,6 @@ class HandKeypointDetector():
 if __name__=='__main__':
     data_folder = r"P:\4Erez\david\test\raw_stream"
     show_debug = False
-    hd = HandKeypointDetector(show_debug)
+    hd = HandKeypointDetector("out/",show_debug)
     hd.detectKeyPoints(data_folder)
     print('%%%%%%%%%%% Done %%%%%%%%%%%%%%%')
