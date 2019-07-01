@@ -56,7 +56,7 @@ class HandKeypointDetector():
 
             # Empty list to store the detected keypoints
             points = []
-            points_probs = []
+            # points_probs = []
             for i in range(self.nPoints):
                 # confidence map of corresponding body's part.
                 probMap = output[0, i, :, :]
@@ -66,25 +66,25 @@ class HandKeypointDetector():
                 minVal, prob, minLoc, point = cv2.minMaxLoc(probMap)
 
                 if prob > threshold :
-                    cv2.circle(frame, (int(point[0]), int(point[1])), 8, (0, int(255*prob), int(255*prob)), thickness=-1, lineType=cv2.FILLED)
+                    cv2.circle(frame, (int(point[0]), int(point[1])), 8, (0, 0, int(255*prob)), thickness=-1, lineType=cv2.FILLED)
                     cv2.putText(frame, "{}".format(self.rearrange_finger_indices[i]), (int(point[0]), int(point[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 1, lineType=cv2.LINE_AA)
 
                     # Add the point to the list if the probability is greater than the threshold
-                    points.append((int(point[0]), int(point[1]),prob))
-                    points_probs.append(prob)
+                    points.append(np.array([int(point[0]), int(point[1]),prob]))
+                    # points_probs.append(prob)
                 else :
-                    points_probs.append(0)
-                    points.append(None)
-
+                    # points_probs.append(0)
+                    points.append(np.array([0, 0,0]))
+            points = np.array(points)
             # Draw Skeleton
             for ii,pair in enumerate(self.POSE_PAIRS):
                 partA = pair[0]
                 partB = pair[1]
-                prob = points_probs[ii]
-                if points[partA] and points[partB]:
-                    cv2.line(frame, points[partA][0:2], points[partB][0:2], (0, 255, 255), 2)
-                    cv2.circle(frame, points[partA][0:2], 8, (0, 0, int(255*prob)), thickness=-1, lineType=cv2.FILLED)
-                    cv2.circle(frame, points[partB][0:2], 8, (0, 0, int(255*prob)), thickness=-1, lineType=cv2.FILLED)
+                # prob = points_probs[ii]
+                if  np.all(points[partA]) and  np.all(points[partB]):
+                    cv2.line(frame, tuple((points[partA][0:2]).astype(int)), tuple((points[partB][0:2]).astype(int)), (0, 255, 255), 2)
+                    # cv2.circle(frame, points[partA][0:2], 8, (0, 0, int(255*prob)), thickness=-1, lineType=cv2.FILLED)
+                    # cv2.circle(frame, points[partB][0:2], 8, (0, 0, int(255*prob)), thickness=-1, lineType=cv2.FILLED)
 
             if self.show_debug:
                 cv2.imshow('Output-Skeleton', frame)
@@ -94,7 +94,7 @@ class HandKeypointDetector():
             cv2.imwrite(self.data_out + output_file_name, frame)
             if self.min_number_of_points < sum(x is not None for x in points):
                 ordered_points = np.array(points)[self.rearrange_finger_indices]
-
+                np.savez(self.data_out + '\\{}.npz'.format(output_file_name), kp_coord_uv=ordered_points[:,0:2], kp_visible=ordered_points[:,2], )
 
 
 if __name__=='__main__':
