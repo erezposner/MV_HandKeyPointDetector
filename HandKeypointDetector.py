@@ -22,20 +22,34 @@ class HandKeypointDetector():
             time.sleep(1)
             os.mkdir(output_folder)
         self.keypoints = np.zeros((2*(self.nPoints -1),3))
-
+        self.resize_factor = 0.5
         self.rearrange_finger_indices = np.array([0, 4, 3, 2, 1, 8, 7, 6, 5, 12, 11, 10, 9, 16, 15, 14, 13, 20, 19, 18, 17])
         self.min_number_of_points = 8
+        self.confidence_for_roi = 0.2
+        self.roi_expansion = 0.09
         self.POSE_PAIRS = [ [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],[0,17],[17,18],[18,19],[19,20] ]
         self.net = cv2.dnn.readNetFromCaffe(self.protoFile, self.weightsFile)
-    def detectKeyPoints(self,data_folder):
+    def storeKeyPoints(self):
+        cv2.imwrite(self.data_out + '\\' + self.output_file_name + '.png', self.debug_image)
+        np.savez(self.data_out + '\\{}.npz'.format(self.output_file_name), num_hands=1, kp_coord_uv=self.keypoints[:, 0:2],
+                 kp_visible=self.keypoints[:, 2], )
 
-        files = glob.glob(data_folder + '\*.png')
+    def detectKeyPoints(self,data_folder):
+        self.debug_image = None
+        self.keypoints = np.zeros((2*(self.nPoints -1),3))
+        self.output_file_name = ''
+
+        if os.path.isdir(data_folder):
+            files = glob.glob(data_folder + '\*.png')
+            bb=None
+        else:
+            files = [data_folder]
         for f in range(0,len(files),1):
             frame = cv2.imread(files[f])
             import re
-            output_file_name = re.split('[\\\ .]', files[f])[-2] + '_skeleton'
+            self.output_file_name = re.split('[\\\ .]', files[f])[-2] + '_skeleton'
 
-            frame = cv2.resize(frame,None,fx=0.5,fy=0.5)
+            frame = cv2.resize(frame,None,fx=self.resize_factor,fy=self.resize_factor)
             # Select ROI
 
             # frame=frame[int(frame.shape[0] / 2):, :, :]
@@ -100,15 +114,25 @@ class HandKeypointDetector():
                 print("Total time taken : {:.3f}".format(time.time() - t))
 
                 cv2.waitKey(0)
-            cv2.imwrite(self.data_out + '\\'+output_file_name+'.png', frame)
+            # cv2.imwrite(self.data_out + '\\'+self.output_file_name+'.png', frame)
             if self.min_number_of_points < sum(x is not None for x in points):
                 ordered_points = np.array(points)[self.rearrange_finger_indices]
+                ordered_points[:,0:2] = ordered_points[:,0:2]/self.resize_factor
                 self.keypoints[0:self.nPoints-1,:] = ordered_points[:,0:3]
-                np.savez(self.data_out + '\\{}.npz'.format(output_file_name), kp_coord_uv=self.keypoints[:,0:2], kp_visible=self.keypoints[:,2], )
+                # np.savez(self.data_out + '\\{}.npz'.format(output_file_name), num_hands = 1 , kp_coord_uv=self.keypoints[:,0:2], kp_visible=self.keypoints[:,2], )
+                indices = self.keypoints[:, 2] > self.confidence_for_roi
+                bb = {'minX': int((1 - self.roi_expansion) * min(self.keypoints[indices, 0])),
+                      'maxX': int((1 + self.roi_expansion) * max(self.keypoints[indices, 0])),
+                      'minY': int((1 - self.roi_expansion) * min(self.keypoints[indices, 1])),
+                      'maxY': int((1 + self.roi_expansion) * max(self.keypoints[indices, 1])),
+                      }
+                # print(bb)
+        self.debug_image = cv2.resize(frame,None,fx=1/self.resize_factor,fy=1/self.resize_factor)
 
+        return bb
 
 if __name__=='__main__':
-    data_folder = r"P:\4Erez\david\test\raw_stream"
+    data_folder = r"P:\4Erez\david\test\raw_stream\stream001_00104RGB.png"
     show_debug = False
     hd = HandKeypointDetector("out/",show_debug)
     hd.detectKeyPoints(data_folder)
