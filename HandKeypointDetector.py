@@ -14,6 +14,7 @@ class HandKeypointDetector():
         self.protoFile = file_dir+"\\hand\\pose_deploy.prototxt"
         self.weightsFile = file_dir+"\\hand\\pose_iter_102000.caffemodel"
         self.nPoints = 22
+	
         self.data_out = output_folder
         if not os.path.exists(output_folder):
             os.mkdir(output_folder)
@@ -29,8 +30,8 @@ class HandKeypointDetector():
         self.roi_expansion = 0.09
         self.POSE_PAIRS = [ [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],[0,17],[17,18],[18,19],[19,20] ]
         self.net = cv2.dnn.readNetFromCaffe(self.protoFile, self.weightsFile)
-    def storeKeyPoints(self):
-        cv2.imwrite(self.data_out + '\\' + self.output_file_name + '.png', self.debug_image)
+    def storeKeyPoints(self,prefix):
+        cv2.imwrite(self.data_out + '\\' + prefix + self.output_file_name + '.png', self.debug_image)
         np.savez(self.data_out + '\\{}.npz'.format(self.output_file_name), num_hands=1, kp_coord_uv=self.keypoints[:, 0:2],
                  kp_visible=self.keypoints[:, 2], )
 
@@ -47,7 +48,7 @@ class HandKeypointDetector():
         for f in range(0,len(files),1):
             frame = cv2.imread(files[f])
             import re
-            self.output_file_name = re.split('[\\\ .]', files[f])[-2] + '_skeleton'
+            self.output_file_name = self.prefix+re.split('[\\\ .]', files[f])[-2] + '_skeleton'
 
             frame = cv2.resize(frame,None,fx=self.resize_factor,fy=self.resize_factor)
             # Select ROI
