@@ -26,7 +26,7 @@ class HandKeypointDetector():
         self.resize_factor = 0.5
         self.rearrange_finger_indices = np.array([0, 4, 3, 2, 1, 8, 7, 6, 5, 12, 11, 10, 9, 16, 15, 14, 13, 20, 19, 18, 17])
         self.min_number_of_points = 8
-        self.confidence_for_roi = 0.2
+        self.confidence_for_roi = 0.05
         self.roi_expansion = 0.09
         self.POSE_PAIRS = [ [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],[0,17],[17,18],[18,19],[19,20] ]
         self.net = cv2.dnn.readNetFromCaffe(self.protoFile, self.weightsFile)
@@ -39,16 +39,25 @@ class HandKeypointDetector():
         self.debug_image = None
         self.keypoints = np.zeros((2*(self.nPoints -1),3))
         self.output_file_name = ''
+        single_imag = False
 
-        if os.path.isdir(data_folder):
-            files = glob.glob(data_folder + '\*.png')
-            bb=None
-        else:
-            files = [data_folder]
+        try:
+            if os.path.isdir(data_folder):
+                files = glob.glob(data_folder + '\*.png')
+                bb=None
+            else:
+                files = [data_folder]
+                single_imag = False
+        except:
+            single_imag = True
+            files = [0]
         for f in range(0,len(files),1):
-            frame = cv2.imread(files[f])
-            import re
-            self.output_file_name = self.prefix+re.split('[\\\ .]', files[f])[-2] + '_skeleton'
+            if single_imag:
+                frame = data_folder.detach().cpu().numpy()
+            else:
+                frame = cv2.imread(files[f])
+                import re
+                self.output_file_name =  re.split('[\\\ .]', files[f])[-2] + '_skeleton'
 
             frame = cv2.resize(frame,None,fx=self.resize_factor,fy=self.resize_factor)
             # Select ROI
@@ -90,8 +99,8 @@ class HandKeypointDetector():
                 minVal, prob, minLoc, point = cv2.minMaxLoc(probMap)
 
                 if prob > threshold :
-                    cv2.circle(frame, (int(point[0]), int(point[1])), 8, (0, 0, int(255*prob)), thickness=-1, lineType=cv2.FILLED)
-                    cv2.putText(frame, "{}".format(self.rearrange_finger_indices[i]), (int(point[0]), int(point[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 1, lineType=cv2.LINE_AA)
+                    cv2.circle(frame, (int(point[0]), int(point[1])), 2, (0, 0, int(255*prob)), thickness=-1, lineType=cv2.FILLED)
+                    cv2.putText(frame, "{}".format(self.rearrange_finger_indices[i]), (int(point[0]), int(point[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.1, (0, 0, 255), 1, lineType=cv2.LINE_AA)
 
                     # Add the point to the list if the probability is greater than the threshold
                     points.append(np.array([int(point[0]), int(point[1]),prob]))
@@ -129,7 +138,10 @@ class HandKeypointDetector():
                       }
                 # print(bb)
         self.debug_image = cv2.resize(frame,None,fx=1/self.resize_factor,fy=1/self.resize_factor)
-
+        # import matplotlib.pyplot as plt
+        # plt.close('all')
+        # plt.imshow(self.debug_image)
+        # plt.savefig('a.png')
         return bb
 
 if __name__=='__main__':
